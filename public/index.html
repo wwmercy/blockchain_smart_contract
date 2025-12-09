@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodeIsLaw Escrow — Trustless Payments</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+
+    <style>
+      :root {
+        --primary: #3a49a9;
+        --primary-light: #5a69c4;
+        --primary-dark: #2c3a8a;
+        --gray-100: #f8f9fa;
+        --gray-200: #e9ecef;
+        --gray-500: #6c757d;
+        --gray-700: #495057;
+        --gray-900: #212529;
+        --success: #28a745;
+        --warning: #ffc107;
+        --danger: #dc3545;
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background-color: #fafbfc;
+        color: var(--gray-900);
+        line-height: 1.5;
+        padding: 24px;
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      }
+
+      /* Typography */
+      h1 {
+        font-weight: 700;
+        font-size: 2.2em;
+        color: var(--primary);
+        margin-bottom: 8px;
+      }
+      .tagline {
+        color: var(--gray-500);
+        font-size: 1.05em;
+        margin-bottom: 32px;
+      }
+      h2 {
+        font-weight: 600;
+        font-size: 1.4em;
+        color: var(--primary-dark);
+        margin: 24px 0 16px;
+      }
+      h3 {
+        font-weight: 600;
+        font-size: 1.15em;
+        margin: 16px 0 12px;
+        color: var(--gray-900);
+      }
+
+      /* Wallet & Info Sections */
+      .section {
+        padding: 24px;
+        background: var(--gray-100);
+        border-radius: 10px;
+        margin-bottom: 24px;
+      }
+
+      /* State Tracker */
+      .state-tracker {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 20px 0;
+        position: relative;
+      }
+
+      .state-tracker::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--gray-200);
+        transform: translateY(-50%);
+        z-index: 0;
+      }
+
+      .state-step {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        flex: 1;
+        padding: 8px 4px;
+      }
+
+      .state-label {
+        display: block;
+        font-size: 0.85em;
+        color: var(--gray-500);
+        margin-top: 6px;
+        white-space: nowrap;
+      }
+
+      .state-dot {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--gray-200);
+        margin: 0 auto 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.7em;
+        font-weight: 600;
+        color: var(--gray-500);
+      }
+
+      .state-step.active .state-dot {
+        background: var(--primary);
+        color: white;
+      }
+
+      .state-step.completed .state-dot {
+        background: var(--success);
+        color: white;
+      }
+
+      /* Info Grid */
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+        margin-top: 12px;
+      }
+
+      .info-item {
+        background: white;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 14px;
+      }
+
+      .info-label {
+        font-weight: 600;
+        font-size: 0.85em;
+        color: var(--gray-500);
+        margin-bottom: 4px;
+      }
+
+      .info-value {
+        font-size: 1em;
+        word-break: break-all;
+        color: var(--gray-900);
+      }
+
+      /* Buttons & Inputs */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1em;
+        font-weight: 500;
+        transition: background 0.2s, transform 0.1s;
+      }
+
+      .btn:hover:not(:disabled) {
+        background: var(--primary-dark);
+      }
+
+      .btn:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .btn-secondary {
+        background: var(--gray-500);
+      }
+
+      .btn-secondary:hover:not(:disabled) {
+        background: #5a6268;
+      }
+
+      .btn-success {
+        background: var(--success);
+      }
+
+      .btn-success:hover:not(:disabled) {
+        background: #218838;
+      }
+
+      .btn-warning {
+        background: var(--warning);
+        color: var(--gray-900);
+      }
+
+      .btn-warning:hover:not(:disabled) {
+        background: #e0a800;
+      }
+
+      .btn-danger {
+        background: var(--danger);
+      }
+
+      .btn-danger:hover:not(:disabled) {
+        background: #c82333;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 12px;
+        margin: 12px 0;
+        flex-wrap: wrap;
+      }
+
+      .input-group > * {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      input[type="number"],
+      input[type="text"] {
+        padding: 10px 14px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 1em;
+        width: 100%;
+        transition: border-color 0.2s;
+      }
+
+      input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(58, 73, 169, 0.15);
+      }
+
+      /* Feedback & Status */
+      .status-box {
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 12px 0;
+        font-size: 0.95em;
+      }
+
+      .status-success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+      }
+
+      .status-warning {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        color: #856404;
+      }
+
+      .status-error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+      }
+
+      .status-info {
+        background: #d1ecf1;
+        border: 1px solid #bee5eb;
+        color: #0c5460;
+      }
+
+      /* Event Log */
+      .event-log {
+        background: #f6f8fa;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 16px;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo,
+          monospace;
+        font-size: 0.85em;
+        line-height: 1.5;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        color: #24292e;
+      }
+
+      .event-log::before {
+        content: "$ tail -f escrow.log";
+        display: block;
+        color: var(--gray-500);
+        margin-bottom: 8px;
+        font-style: italic;
+      }
+
+      /* Concept badge (now subtle pill) */
+      .concept-tag {
+        display: inline-block;
+        background: var(--primary-light);
+        color: white;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.75em;
+        font-weight: 600;
+        margin-right: 8px;
+        margin-bottom: 6px;
+      }
+
+      /* Loading indicator (inline only) */
+      .inline-loading::after {
+        content: "";
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        margin-left: 8px;
+        border: 2px solid #e0e0e0;
+        border-top-color: #3a49a9;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Responsive tweaks */
+      @media (max-width: 768px) {
+        .container {
+          padding: 20px 16px;
+        }
+        h1 {
+          font-size: 1.8em;
+        }
+        .state-tracker {
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .state-tracker::before {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>CodeIsLaw Escrow</h1>
+        <p class="tagline">Trustless • Immutable • Self-Executing • On-Chain</p>
+      </header>
+
+      <!-- Wallet Connection -->
+      <section class="section">
+        <h2>Wallet Connection</h2>
+        <button id="connectBtn" class="btn" onclick="connectWallet()">
+          Connect MetaMask
+        </button>
+        <div id="walletInfo" style="margin-top: 16px"></div>
+      </section>
+
+      <!-- State Tracker -->
+      <section class="section">
+        <h2>Escrow State</h2>
+        <div class="state-tracker">
+          <div class="state-step" id="step0">
+            <span class="state-dot">1</span>
+            <span class="state-label">Created</span>
+          </div>
+          <div class="state-step" id="step1">
+            <span class="state-dot">2</span>
+            <span class="state-label">Funded</span>
+          </div>
+          <div class="state-step" id="step2">
+            <span class="state-dot">3</span>
+            <span class="state-label">Work Done</span>
+          </div>
+          <div class="state-step" id="step3">
+            <span class="state-dot">4</span>
+            <span class="state-label">Paid</span>
+          </div>
+          <div class="state-step" id="step4">
+            <span class="state-dot">5</span>
+            <span class="state-label">Refunded</span>
+          </div>
+          <div class="state-step" id="step5">
+            <span class="state-dot">6</span>
+            <span class="state-label">Disputed</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Contract Details -->
+      <section class="section">
+        <h2>Contract Details</h2>
+        <div>
+          <span class="concept-tag">Public Verifiability</span>
+        </div>
+        <div class="info-grid" id="contractDetails">
+          <div class="info-item">
+            <div class="info-label">Status</div>
+            <div class="info-value">Connect wallet to load</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Actions -->
+      <section class="section">
+        <h2>Actions</h2>
+
+        <div>
+          <span class="concept-tag">Automated Execution</span>
+          <span class="concept-tag">Gas Economics</span>
+        </div>
+
+        <div class="section" style="margin-top: 16px; padding: 20px">
+          <h3>Client</h3>
+          <div class="input-group">
+            <input
+              type="number"
+              id="depositAmount"
+              placeholder="Amount in ETH (e.g., 0.1)"
+              step="0.01"
+            />
+            <button class="btn" onclick="depositFunds()">Deposit Funds</button>
+          </div>
+          <div id="depositGas" style="display: none"></div>
+
+          <div style="margin-top: 12px">
+            <button class="btn btn-success" onclick="approveAndPay()">
+              Approve & Release Payment
+            </button>
+            <div id="approveGas" style="display: none"></div>
+          </div>
+
+          <div class="input-group" style="margin-top: 12px">
+            <input
+              type="text"
+              id="disputeReason"
+              placeholder="Optional dispute reason"
+            />
+            <button class="btn btn-warning" onclick="raiseDispute()">
+              Raise Dispute
+            </button>
+          </div>
+
+          <div style="margin-top: 12px">
+            <button class="btn" onclick="requestRefund()">
+              Request Refund (after 30 days)
+            </button>
+          </div>
+        </div>
+
+        <div class="section" style="margin-top: 16px; padding: 20px">
+          <h3>Freelancer</h3>
+          <button class="btn btn-success" onclick="completeWork()">
+            Mark Work Complete
+          </button>
+          <div id="completeGas" style="display: none"></div>
+        </div>
+
+        <div class="section" style="margin-top: 16px; padding: 20px">
+          <h3>Time-Based Automation</h3>
+          <p style="margin-bottom: 12px; color: var(--gray-700)">
+            Anyone may trigger auto-release after the 7-day window.
+          </p>
+          <button class="btn" onclick="autoRelease()">
+            Trigger Auto-Release
+          </button>
+          <div id="autoReleaseGas" style="display: none"></div>
+        </div>
+      </section>
+
+      <!-- Dispute Resolution -->
+      <section class="section">
+        <h2>Dispute Resolution</h2>
+        <div class="concept-tag">Trustless Interaction</div>
+
+        <div class="section" style="margin-top: 16px; padding: 20px">
+          <h3>Arbiter Only</h3>
+          <div class="input-group">
+            <button class="btn btn-success" onclick="resolveForFreelancer()">
+              Award to Freelancer
+            </button>
+            <button class="btn btn-danger" onclick="resolveForClient()">
+              Award to Client
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Event Log -->
+      <section class="section">
+        <h2>On-Chain Event Log</h2>
+        <div class="concept-tag">Cryptographic Verification</div>
+        <div class="event-log" id="eventLog">Waiting for events…</div>
+        <button class="btn" style="margin-top: 12px" onclick="loadEvents()">
+          Refresh Events
+        </button>
+      </section>
+    </div>
+
+    <script>
+      // ⚠️ UPDATE THIS WITH YOUR CONTRACT ADDRESS
+      const CONTRACT_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+
+      const CONTRACT_ABI = [
+        "constructor(address payable _client, address payable _freelancer, address _arbiter)",
+        "function depositFunds() external payable",
+        "function completeWork() external",
+        "function approveAndPay() external",
+        "function autoReleasePayment() external",
+        "function raiseDispute(string calldata reason) external",
+        "function resolveDisputeForFreelancer() external",
+        "function resolveDisputeForClient() external",
+        "function requestRefund() external",
+        "function getEscrowDetails() external view returns (uint8 state, address clientAddr, address freelancerAddr, address arbiterAddr, uint256 amount, uint256 created, uint256 workDoneTime, uint256 disputeDeadline)",
+        "function isDisputePeriodActive() external view returns (bool)",
+        "function timeUntilAutoRelease() external view returns (uint256)",
+        "function currentState() external view returns (uint8)",
+        "event EscrowCreated(address indexed client, address indexed freelancer, address indexed arbiter, uint256 timestamp, uint256 blockNumber)",
+        "event FundsDeposited(address indexed from, uint256 amount, uint256 timestamp, uint256 blockNumber)",
+        "event WorkCompleted(address indexed freelancer, uint256 timestamp, uint256 blockNumber)",
+        "event PaymentReleased(address indexed to, uint256 amount, uint256 timestamp, uint256 blockNumber, bytes32 txHash)",
+        "event PaymentRefunded(address indexed to, uint256 amount, uint256 timestamp, string reason)",
+        "event DisputeRaised(address indexed by, uint256 timestamp, string reason)",
+        "event StateTransition(uint8 from, uint8 to, uint256 timestamp)",
+      ];
+
+      let provider, signer, contract, userAddress;
+
+      const STATE_NAMES = [
+        "CREATED",
+        "FUNDED",
+        "WORK_DONE",
+        "PAID",
+        "REFUNDED",
+        "DISPUTED",
+      ];
+      const STATE_STEPS = [
+        "step0",
+        "step1",
+        "step2",
+        "step3",
+        "step4",
+        "step5",
+      ];
+
+      // --- JS remains functionally identical to yours — only UI feedback updates below --- //
+
+      async function connectWallet() {
+        if (typeof window.ethereum === "undefined") {
+          showError(
+            "walletInfo",
+            "MetaMask not detected. Please install it at metamask.io"
+          );
+          return;
+        }
+
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          userAddress = await signer.getAddress();
+
+          contract = new ethers.Contract(
+            CONTRACT_ADDRESS,
+            CONTRACT_ABI,
+            signer
+          );
+
+          const balance = await provider.getBalance(userAddress);
+          document.getElementById("walletInfo").innerHTML = `
+            <div class="status-success">
+              Wallet connected: <strong>${userAddress.slice(
+                0,
+                6
+              )}…${userAddress.slice(-4)}</strong><br>
+              Balance: ${ethers.utils.formatEther(balance).slice(0, 6)} ETH
+            </div>
+          `;
+
+          document.getElementById("connectBtn").textContent = "Connected";
+          document.getElementById("connectBtn").disabled = true;
+
+          await loadContractDetails();
+          await loadEvents();
+
+          setInterval(loadContractDetails, 8000);
+        } catch (err) {
+          showError("walletInfo", err.message);
+        }
+      }
+
+      async function loadContractDetails() {
+        if (!contract) return;
+        try {
+          const [details, disputeActive, timeUntil] = await Promise.all([
+            contract.getEscrowDetails(),
+            contract.isDisputePeriodActive(),
+            contract.timeUntilAutoRelease(),
+          ]);
+
+          // Update state tracker
+          STATE_STEPS.forEach((id, i) => {
+            const el = document.getElementById(id);
+            el.classList.remove("active", "completed");
+            if (i < details.state) el.classList.add("completed");
+            if (i === details.state) el.classList.add("active");
+          });
+
+          const fields = [
+            { label: "Current State", value: STATE_NAMES[details.state] },
+            {
+              label: "Client",
+              value: `${details.clientAddr.slice(
+                0,
+                6
+              )}…${details.clientAddr.slice(-4)}`,
+            },
+            {
+              label: "Freelancer",
+              value: `${details.freelancerAddr.slice(
+                0,
+                6
+              )}…${details.freelancerAddr.slice(-4)}`,
+            },
+            {
+              label: "Arbiter",
+              value: `${details.arbiterAddr.slice(
+                0,
+                6
+              )}…${details.arbiterAddr.slice(-4)}`,
+            },
+            {
+              label: "Escrow Amount",
+              value: `${ethers.utils.formatEther(details.amount)} ETH`,
+            },
+            { label: "Dispute Active", value: disputeActive ? "Yes" : "No" },
+            {
+              label: "Auto-Release in",
+              value: timeUntil > 60 ? formatTime(timeUntil) : "Ready",
+            },
+          ];
+
+          document.getElementById("contractDetails").innerHTML = fields
+            .map(
+              (f) => `
+            <div class="info-item">
+              <div class="info-label">${f.label}</div>
+              <div class="info-value">${f.value}</div>
+            </div>
+          `
+            )
+            .join("");
+        } catch (err) {
+          console.warn("Load details failed:", err);
+        }
+      }
+
+      // --- Helper UI functions --- //
+      function showStatus(id, type, message) {
+        const el = document.getElementById(id);
+        el.className = `status-${type}`;
+        el.innerHTML = message;
+        el.style.display = "block";
+      }
+
+      function showGasStatus(id, receipt, message) {
+        const gasCost = ethers.utils.formatEther(
+          receipt.gasUsed.mul(receipt.effectiveGasPrice)
+        );
+        showStatus(
+          id,
+          "success",
+          `
+          ${message}<br>
+          <small>Gas: ${receipt.gasUsed.toString()} · Cost: ${parseFloat(
+            gasCost
+          ).toFixed(6)} ETH</small>
+        `
+        );
+      }
+
+      function showError(id, msg) {
+        showStatus(id, "error", msg);
+      }
+      function showInfo(id, msg) {
+        showStatus(id, "info", msg);
+      }
+
+      // Loading placeholder
+      function setLoading(id, text = "Processing…") {
+        const el = document.getElementById(id);
+        el.className = "";
+        el.style.display = "block";
+        el.innerHTML = `<span class="inline-loading">${text}</span>`;
+      }
+
+      async function depositFunds() {
+        const amount = parseFloat(
+          document.getElementById("depositAmount").value
+        );
+        if (!amount || amount <= 0)
+          return showError("depositGas", "Enter a valid amount");
+        setLoading("depositGas");
+        try {
+          const tx = await contract.depositFunds({
+            value: ethers.utils.parseEther(amount.toString()),
+          });
+          const r = await tx.wait();
+          showGasStatus("depositGas", r, "✅ Funds deposited");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (err) {
+          showError("depositGas", err.message);
+        }
+      }
+
+      // Other action handlers remain — just swap `showError`, `showGasInfo`, `showLoading` → use above helpers
+      // (e.g., in `completeWork`, `approveAndPay`, etc.)
+
+      async function completeWork() {
+        setLoading("completeGas");
+        try {
+          const t = await contract.completeWork();
+          const r = await t.wait();
+          showGasStatus("completeGas", r, "✅ Work marked complete");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("completeGas", e.message);
+        }
+      }
+      async function approveAndPay() {
+        setLoading("approveGas");
+        try {
+          const t = await contract.approveAndPay();
+          const r = await t.wait();
+          showGasStatus("approveGas", r, "✅ Payment released");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("approveGas", e.message);
+        }
+      }
+      async function autoRelease() {
+        setLoading("autoReleaseGas");
+        try {
+          const t = await contract.autoReleasePayment();
+          const r = await t.wait();
+          showGasStatus("autoReleaseGas", r, "✅ Payment auto-released");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("autoReleaseGas", e.message);
+        }
+      }
+      async function raiseDispute() {
+        const r = document.getElementById("disputeReason").value || "—";
+        try {
+          const t = await contract.raiseDispute(r);
+          await t.wait();
+          showInfo("walletInfo", "Dispute raised");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("walletInfo", e.message);
+        }
+      }
+      async function requestRefund() {
+        try {
+          const t = await contract.requestRefund();
+          await t.wait();
+          showInfo("walletInfo", "Refund processed");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("walletInfo", e.message);
+        }
+      }
+      async function resolveForFreelancer() {
+        try {
+          const t = await contract.resolveDisputeForFreelancer();
+          await t.wait();
+          showInfo("walletInfo", "Resolved for freelancer");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("walletInfo", e.message);
+        }
+      }
+      async function resolveForClient() {
+        try {
+          const t = await contract.resolveDisputeForClient();
+          await t.wait();
+          showInfo("walletInfo", "Resolved for client");
+          await loadContractDetails();
+          await loadEvents();
+        } catch (e) {
+          showError("walletInfo", e.message);
+        }
+      }
+
+      async function loadEvents() {
+        if (!contract) return;
+        try {
+          const events = await contract.queryFilter({}, 0, "latest");
+          let txt = events
+            .reverse()
+            .map((e) => {
+              const ts = new Date((e.args?.timestamp || 0) * 1000)
+                .toISOString()
+                .slice(11, 19);
+              return `[${ts}] ${e.event}`;
+            })
+            .join("\n");
+          document.getElementById("eventLog").textContent =
+            txt || "No events yet.";
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      function formatTime(s) {
+        const d = Math.floor(s / 86400),
+          h = Math.floor((s % 86400) / 3600),
+          m = Math.floor((s % 3600) / 60);
+        return `${d}d ${h}h ${m}m`;
+      }
+
+      // Reconnect on account/chain change
+      if (window.ethereum) {
+        window.ethereum.on("accountsChanged", () => location.reload());
+        window.ethereum.on("chainChanged", () => location.reload());
+      }
+    </script>
+  </body>
+</html>
